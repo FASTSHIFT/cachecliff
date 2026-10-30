@@ -106,8 +106,32 @@ uint32_t cc_port_ticks_per_sec(void);
 void     cc_port_puts(const char *s);
 ```
 
-On a Cortex-M the DWT cycle counter is the timer. Put the bank and the data region where the experiment needs
-them with `CC_FN_ATTR` and `CC_DATA_ATTR`, for example the callbacks in RAM and the data in external memory.
+`port/cortex-m/cc_port.c` is that port for Cortex-M3/M4/M7/M33: the timer is the
+DWT cycle counter, so a tick is a CPU cycle and the rate is `SystemCoreClock`.
+The board provides `void cc_board_putc(char)` and sets clocks and caches up
+before calling `cc_main()`. Put the bank and the data region where the
+experiment needs them with `CC_FN_ATTR` and `CC_DATA_ATTR`, for example the
+callbacks in RAM and the data in external memory.
+
+## Validation on a Cortex-M7
+
+cachecliff was run on an STM32H743 (150 MHz, 16 KiB I-cache and 16 KiB
+D-cache, code in Flash, data in AXI SRAM) and every point was captured at the
+same time with the ETM trace of [cortrace](https://github.com/cortrace/cortrace),
+which counts cycles without the program's help. The self-reported
+cycles per call agree with the trace's within 0.3% at all 23 points of the
+code, data and cache sweeps (callbacks and dispatcher, 1 s per point).
+
+| Sweep | What cachecliff reports | What the trace adds |
+|---|---|---|
+| code footprint | 151 cycles/call with 1.8 KiB of callbacks, 311 with 459 KiB. The I-cache knee is at 14 KiB | the extra cycles are fetch stalls **and** loads: the callbacks load their constants from literal pools in Flash through the D-cache (LSU 1.8 to 69 cycles/call) |
+| same, `-mslow-flash-data` | 152 to 379 cycles/call | constants come from `movw`/`movt`, the LSU share stays 0, the whole growth is fetch stalls |
+| data footprint | 164 cycles/call up to 8 KiB, 221 at 256 KiB. Dependent load: 3 cycles up to 16 KiB, 10.3 at 32 KiB, 12.0 in AXI SRAM | the growth is LSU only (1.8 to 60 cycles/call); issue and fetch stay put |
+| caches (16 callbacks) | both on 164, I-cache off 345, D-cache off 416, both off 644 | I-cache off adds fetch stalls, D-cache off adds LSU |
+
+The code footprint therefore measures the instruction cache and the data cache
+together on a core that loads constants from the code section. That is how
+compiled code behaves, and `-mslow-flash-data` separates the two.
 
 ## Development
 

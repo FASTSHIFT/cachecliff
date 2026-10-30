@@ -99,8 +99,25 @@ uint32_t cc_port_ticks_per_sec(void);
 void     cc_port_puts(const char *s);
 ```
 
-Cortex-M 上用 DWT 周期计数器做计时器。用 `CC_FN_ATTR` 和 `CC_DATA_ATTR` 把库和数据区放到实验需要的位置，
-例如回调放 RAM、数据放外部存储器。
+`port/cortex-m/cc_port.c` 就是 Cortex-M3/M4/M7/M33 的 port：计时器是 DWT 周期计数器，一个 tick 是一个 CPU 周期，
+频率取 `SystemCoreClock`。板子需要提供 `void cc_board_putc(char)`，并在调用 `cc_main()` 之前配好时钟和缓存。
+用 `CC_FN_ATTR` 和 `CC_DATA_ATTR` 把库和数据区放到实验需要的位置，例如回调放 RAM、数据放外部存储器。
+
+## 在 Cortex-M7 上的验证
+
+cachecliff 在 STM32H743 上跑过（150 MHz，I-cache 和 D-cache 各 16 KiB，代码在 Flash，数据在 AXI SRAM），
+每个点同时用 [cortrace](https://github.com/cortrace/cortrace) 的 ETM trace 抓取；trace 数周期，不依赖程序本身。
+代码、数据、缓存三组扫描共 23 个点（回调加调度器，每点 1 秒），程序自报的每次调用周期数与 trace 的偏差都在 0.3% 以内。
+
+| 扫描 | cachecliff 报告 | trace 补充的信息 |
+|---|---|---|
+| 代码足迹 | 回调 1.8 KiB 时 151 周期/次，459 KiB 时 311。I-cache 拐点在 14 KiB | 多出来的周期既有取指停顿，也有读：回调从 Flash 里的字面量池（literal pool）经 D-cache 读常数（LSU 从 1.8 涨到 69 周期/次） |
+| 同上，`-mslow-flash-data` | 152 到 379 周期/次 | 常数改用 `movw`/`movt`，LSU 一直是 0，增长全是取指停顿 |
+| 数据足迹 | 8 KiB 以内 164 周期/次，256 KiB 时 221。依赖读：16 KiB 以内 3 周期，32 KiB 为 10.3，AXI SRAM 为 12.0 | 增长只在 LSU（1.8 到 60 周期/次），发射和取指不变 |
+| 缓存（16 个回调） | 全开 164，关 I-cache 345，关 D-cache 416，全关 644 | 关 I-cache 增加的是取指停顿，关 D-cache 增加的是 LSU |
+
+所以在会从代码段里读常数的内核上，代码足迹扫描测到的是指令缓存和数据缓存的合计。编译出来的代码就是这样，
+`-mslow-flash-data` 可以把两者分开。
 
 ## 开发
 
