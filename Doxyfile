@@ -2,7 +2,7 @@
 PROJECT_NAME           = "cachecliff"
 PROJECT_BRIEF          = "Find where the cache and memory system of a CPU starts to hurt"
 OUTPUT_DIRECTORY       = doc
-INPUT                  = include src port bank README.md README_en.md
+INPUT                  = include src port bank README.md README_en.md docs
 FILE_PATTERNS          = *.h *.c *.md
 RECURSIVE              = YES
 USE_MDFILE_AS_MAINPAGE = README.md
@@ -17,3 +17,4 @@ QUIET                  = YES
 HAVE_DOT               = NO
 WARN_NO_PARAMDOC       = YES
 WARN_IF_DOC_ERROR      = YES
+IMAGE_PATH             = docs/assets
