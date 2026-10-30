@@ -1,0 +1,9 @@
+# cachecliff C style: WebKit base, as in cortrace.
+# Regenerate defaults with: clang-format --style=WebKit --dump-config
+BasedOnStyle: WebKit
+Language: Cpp
+ColumnLimit: 100
+PointerAlignment: Right
+AlwaysBreakAfterReturnType: None
+# Doxygen blocks and aligned macro bodies are written by hand
+ReflowComments: false

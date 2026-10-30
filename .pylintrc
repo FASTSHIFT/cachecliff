@@ -1,0 +1,17 @@
+# Pylint config for the generator and its tests (tools/, tests/).
+[MESSAGES CONTROL]
+disable =
+    missing-module-docstring,
+    missing-function-docstring,
+    invalid-name,
+    duplicate-code,
+    too-many-locals,
+    too-many-branches,
+    too-many-return-statements,
+    too-many-arguments,
+    too-many-positional-arguments,
+    too-many-statements,
+    wrong-import-position,
+    import-error
+[FORMAT]
+max-line-length = 100

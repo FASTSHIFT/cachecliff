@@ -1,0 +1,122 @@
+name: CI
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  format:
+    name: clang-format (WebKit) + black + pylint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang-format
+          pip install black pylint
+      - name: C formatting
+        run: bash scripts/format.sh --check
+      - name: Python formatting and lint
+        run: bash scripts/format-py.sh --check
+
+  build-test:
+    name: build + test (${{ matrix.cc }}, -Werror)
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        cc: [gcc, clang]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install clang
+        if: matrix.cc == 'clang'
+        run: sudo apt-get update && sudo apt-get install -y clang
+      - name: Build, unit tests, tests with the real timer, generator tests
+        run: make test CC=${{ matrix.cc }} WERROR=-Werror
+      - name: A bigger optimisation level changes nothing the tests can see
+        run: make clean && make test CC=${{ matrix.cc }} OPT=-O3 WERROR=-Werror
+
+  sanitizers:
+    name: unit tests under ASan + UBSan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run
+        env:
+          ASAN_OPTIONS: halt_on_error=1:detect_leaks=1
+          UBSAN_OPTIONS: halt_on_error=1:print_stacktrace=1
+        run: make asan WERROR=-Werror
+
+  coverage:
+    name: coverage gate (src/ >= 95% of lines)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install gcovr
+        run: pip install gcovr
+      - name: Tests with coverage; fails under the threshold
+        run: make coverage
+      - name: Upload the report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-html
+          path: build/cov
+          if-no-files-found: ignore
+
+  cross:
+    name: compile for Cortex-M0 / M3 / M4 / M7
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install the ARM toolchain
+        run: sudo apt-get update && sudo apt-get install -y gcc-arm-none-eabi
+      - name: Compile the core for each core
+        run: make cross WERROR=-Werror
+
+  docs:
+    name: documentation (every Doxygen warning is an error)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install Doxygen
+        run: sudo apt-get update && sudo apt-get install -y doxygen
+      - name: Build
+        run: bash scripts/check-doc.sh
+      - name: Upload the HTML
+        uses: actions/upload-artifact@v4
+        with:
+          name: doc-html
+          path: doc/html
+
+  bank:
+    name: generator (the committed bank is what ccgen writes)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.10"
+      - name: Install pytest
+        run: pip install pytest
+      - name: Generator tests
+        run: python3 -m pytest tests
+      - name: Regenerate and compare
+        run: |
+          python3 tools/ccgen.py --out /tmp/bank
+          diff -r /tmp/bank bank
+      - name: A bank of another size also builds and validates
+        run: |
+          python3 tools/ccgen.py --out /tmp/bank256 --funcs 256 --seed 7
+          mkdir -p /tmp/alt && cp -r include src port /tmp/alt/ && cp -r /tmp/bank256 /tmp/alt/bank
+          cd /tmp/alt
+          cc -O2 -std=c99 -Wall -Wextra -Wpedantic -Werror -Iinclude \
+            -DCC_NFUNCS=256 -DCC_DATA_BYTES=1048576 \
+            src/*.c bank/*.c port/posix/*.c -o cc256
+          ./cc256 --validate

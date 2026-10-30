@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# cachecliff pre-commit hook: formatting and lint on the staged sources.
+#   - C (include|src|port|tests/*.c|*.h): clang-format
+#   - Python (*.py): black --check + pylint
+#   - bank/ is generated: it must be what tools/ccgen.py writes
+# Blocks the commit if any staged source fails its gate.
+#
+# Install with: scripts/install-hooks.sh  (sets core.hooksPath to .githooks)
+set -euo pipefail
+ROOT="$(git rev-parse --show-toplevel)"
+cd "$ROOT"
+fail=0
+
+# ---- C : clang-format -------------------------------------------------------
+CLANG_FORMAT="${CLANG_FORMAT:-clang-format}"
+mapfile -t CSRC < <(git diff --cached --name-only --diff-filter=ACM \
+    | grep -E '^(include|src|port|tests)/.*\.(c|h)$' || true)
+if [[ ${#CSRC[@]} -gt 0 ]]; then
+    if command -v "$CLANG_FORMAT" >/dev/null 2>&1; then
+        for f in "${CSRC[@]}"; do
+            [[ -f "$f" ]] || continue
+            if ! diff -q <("$CLANG_FORMAT" --style=file "$f") "$f" >/dev/null; then
+                echo "pre-commit: needs formatting -> $f"
+                fail=1
+            fi
+        done
+        [[ $fail -ne 0 ]] && echo "  fix with 'scripts/format.sh' then re-stage." >&2
+    else
+        echo "pre-commit: $CLANG_FORMAT not found; skipping C format check" >&2
+    fi
+fi
+
+# ---- Python : black + pylint ------------------------------------------------
+mapfile -t PY < <(git diff --cached --name-only --diff-filter=ACM | grep -E '\.py$' || true)
+if [[ ${#PY[@]} -gt 0 ]]; then
+    if command -v black >/dev/null 2>&1 && command -v pylint >/dev/null 2>&1; then
+        if ! black --check "${PY[@]}" >/dev/null 2>&1; then
+            echo "pre-commit: Python needs formatting (black):"
+            black --check "${PY[@]}" 2>&1 | sed 's/^/  /' || true
+            echo "  fix with 'scripts/format-py.sh' then re-stage." >&2
+            fail=1
+        fi
+        if ! pylint "${PY[@]}" >/dev/null 2>&1; then
+            echo "pre-commit: pylint issues (run: pylint ${PY[*]})" >&2
+            fail=1
+        fi
+    else
+        echo "pre-commit: black/pylint not found; skipping Python checks" >&2
+    fi
+fi
+
+# ---- the generated bank -----------------------------------------------------
+if git diff --cached --name-only | grep -qE '^(bank/|tools/ccgen\.py)'; then
+    tmp="$(mktemp -d)"
+    trap 'rm -rf "$tmp"' EXIT
+    python3 tools/ccgen.py --out "$tmp" >/dev/null
+    if ! diff -rq "$tmp" bank >/dev/null; then
+        echo "pre-commit: bank/ is not what tools/ccgen.py generates; run it and re-stage." >&2
+        fail=1
+    fi
+fi
+
+[[ $fail -ne 0 ]] && { echo "" >&2; echo "commit blocked." >&2; exit 1; }
+exit 0
