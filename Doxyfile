@@ -1,0 +1,18 @@
+# Doxygen configuration of cachecliff. Run `make doc` (HTML in doc/html).
+PROJECT_NAME           = "cachecliff"
+PROJECT_BRIEF          = "Find where the cache and memory system of a CPU starts to hurt"
+OUTPUT_DIRECTORY       = doc
+INPUT                  = include src port bank README.md
+FILE_PATTERNS          = *.h *.c *.md
+RECURSIVE              = YES
+USE_MDFILE_AS_MAINPAGE = README.md
+EXTRACT_ALL            = NO
+EXTRACT_STATIC         = YES
+JAVADOC_AUTOBRIEF      = YES
+OPTIMIZE_OUTPUT_FOR_C  = YES
+GENERATE_LATEX         = NO
+WARN_IF_UNDOCUMENTED   = YES
+WARN_AS_ERROR          = FAIL_ON_WARNINGS
+QUIET                  = YES
+WARN_NO_PARAMDOC       = YES
+WARN_IF_DOC_ERROR      = YES

@@ -1,0 +1,9 @@
+# Python tooling of the generator (tools/) and its tests (tests/).
+# Formatting: black. Linting: pylint (see .pylintrc). Tests: pytest.
+[tool.black]
+line-length = 88
+target-version = ["py310"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
