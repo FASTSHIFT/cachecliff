@@ -5,6 +5,7 @@
 #
 #   make              build ./cachecliff
 #   make run          build and run the sweeps
+#   make report       run the sweeps and write report.md (charts and findings)
 #   make test         unit tests (fake timer), tests with the real timer, generator tests
 #   make asan         the unit tests under AddressSanitizer + UBSan
 #   make coverage     the unit tests with a line-coverage gate on src/
@@ -39,7 +40,7 @@ TEST_SRC   := $(CORE) $(BANK) tests/port_fake.c tests/test_main.c tests/test_eng
 # the minimum line coverage of src/, in percent
 COV_MIN ?= 95
 
-.PHONY: all run test test-hosted asan coverage cross format format-check doc check clean
+.PHONY: all run report test test-hosted asan coverage cross format format-check doc check clean
 all: cachecliff
 
 cachecliff: $(patsubst %.c,$(BUILD)/%.o,$(CORE) $(BANK) $(POSIX))
@@ -51,6 +52,12 @@ $(BUILD)/%.o: %.c include/cachecliff.h
 
 run: cachecliff
 	./cachecliff
+
+report: cachecliff
+	@mkdir -p $(BUILD)
+	./cachecliff --csv > $(BUILD)/host.csv
+	python3 tools/ccreport.py $(BUILD)/host.csv -o report.md
+	@echo wrote report.md
 
 $(BUILD)/test_cc: $(TEST_SRC) include/cachecliff.h tests/cc_test.h tests/port_fake.h
 	@mkdir -p $(BUILD)
@@ -69,6 +76,7 @@ test-hosted: $(BUILD)/test_hosted
 test: $(BUILD)/test_cc cachecliff test-hosted
 	./$(BUILD)/test_cc
 	python3 tests/test_ccgen.py
+	python3 tests/test_ccreport.py
 	./cachecliff --validate
 	./cachecliff --quick --csv > /dev/null
 
