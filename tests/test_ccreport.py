@@ -168,6 +168,14 @@ def test_several_files_share_the_charts():
         assert doc.count("    line [") >= 8, "two lines per chart"
 
 
+def test_cycles_turns_ns_into_ticks():
+    res = run_tool("--cycles", "--lang", "en", "-", stdin=CSV)
+    assert res.returncode == 0, res.stderr
+    assert "cycles/call" in res.stdout and "ns/call" not in res.stdout
+    # 100 ns at 150 MHz is 15 cycles: the first point of the code footprint
+    assert "| 4 | 1.5 | 15.00 |" in res.stdout
+
+
 def test_a_failed_validation_is_flagged_and_exits_1():
     res = run_tool("-", stdin=CSV.replace("validate,0", "validate,3"))
     assert res.returncode == 1

@@ -41,13 +41,15 @@ python3 tools/ccreport.py on.csv off.csv -l "缓存开" -l "缓存关" -o compar
 - 输入可以是 `--csv` 的输出，也可以是普通报告的文本；设备串口上抓下来的整份日志直接喂进去就行，
   前后的启动信息、乱码、别的输出都会被跳过，日志里有多份报告时取最后一份。`-` 或不给文件名表示读标准输入。
 - 输出到标准输出，或用 `-o` 写文件；`--lang en` 出英文，`--title` 改标题。
+- 比较主频不同的机器时加 `--cycles`：时间换成计时器的 tick（计时器是 CPU 周期计数器时就是周期数）。
 - 文档里有：概览表、结论（拐点位置、各级存储的读延迟、最陡的一步、倾斜度和预测失败的代价）、四组 Mermaid 折线图和对应的数据表。
   多份输入时只画它们共有的点，图下面注明线条顺序。
 - 回调没有通过校验时文档开头会警告，退出码为 1；读不出报告时退出码为 2。
 - 在 GitHub、VS Code（装了 Mermaid 插件）和 Kiro 里直接能看到图。
 
 例子（真实数据）：[`examples/h743.md`](examples/h743.md)（STM32H743 一份）、
-[`examples/h743-compare.md`](examples/h743-compare.md)（字面量池对 `movw/movt` 两份叠加）。
+[`examples/h743-compare.md`](examples/h743-compare.md)（字面量池对 `movw/movt` 两份叠加）、
+[`examples/h743-vs-rt1176.md`](examples/h743-vs-rt1176.md)（两块板子用 `--cycles` 叠加，分析见 `05-h743-vs-rt1176.md`）。
 
 设备上要出 CSV 就让 `cc_main` 的选项里 `csv = 1`（STM32H743 的固件用 `EXTRA_CFLAGS=-DCC_CSV=1`，见 `02-porting.md`）；
 不想改固件，直接抓文本报告也可以。

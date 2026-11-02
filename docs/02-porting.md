@@ -63,6 +63,10 @@ void     cc_port_puts(const char *s);
 | STM32H743（150 MHz，16 KiB 缓存） | `stm32h743-etm-trace-firmware` 的 `Core/cachecliff_port/` | `make CACHECLIFF=1` |
 | i.MX RT1176（996 MHz，32 KiB 缓存） | `lv_port_nxp_evkmimxrt1170` 的 `cachecliff_port/` | `make -C cachecliff_port` |
 
+i.MX RT1176 有两种构建：`make -C cachecliff_port` 把代码放在 QSPI Flash 里原地执行；`make -C cachecliff_port RAM=1` 把代码放进 OCRAM1，
+用 `make RAM=1 load`（`load_ram.py`，pyocd）装载并启动，不写 Flash。板子上的 Flash 如果被别的程序设成了 DDR 连续读模式，pyocd 的 Flash 算法会初始化失败，
+这时用 RAM 版最省事。串口读不出时（RT1176 的虚拟串口在这块板上读到的是乱码），`read_log.py` 直接从目标内存的日志缓冲区 `g_cc_log` 读出同样的文本。
+
 两者都在启动时从串口打印完整报告，再进入浸泡循环；`EXTRA_CFLAGS="-DCC_CSV=1 -DCC_QUICK=0"` 让报告输出 CSV 并跑完整扫描，
 把串口日志交给 `tools/ccreport.py` 就得到分析文档（见 `01-user-guide.md`）。STM32H743 的配置：
 

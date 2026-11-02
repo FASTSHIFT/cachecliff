@@ -29,6 +29,10 @@ LINE_RE = re.compile(
 
 TEXT = {
     "zh": {
+        "unit": "ns",
+        "cycles_unit": "周期",
+        "cycles_ns_call": "周期/次调用",
+        "cycles_ns_load": "周期/次读",
         "title": "cachecliff 报告",
         "source": "数据来源",
         "overview": "概览",
@@ -68,6 +72,10 @@ TEXT = {
         "gen": "由 `tools/ccreport.py` {ver} 生成。",
     },
     "en": {
+        "unit": "ns",
+        "cycles_unit": "cycles",
+        "cycles_ns_call": "cycles/call",
+        "cycles_ns_load": "cycles/load",
         "title": "cachecliff report",
         "source": "Source",
         "overview": "Overview",
@@ -132,6 +140,7 @@ class Run:  # pylint: disable=too-many-instance-attributes,too-few-public-method
         self.skew = []  # (k, ns, rel)
         self.pattern = None  # (random_ns, repeat_ns)
         self.hot_ns = None
+        self.real_hz = None  # the rate of the timer, once the times are in ticks
 
     def ticks(self, ns):
         """The time in timer ticks."""
@@ -385,7 +394,11 @@ def data_findings(run, t):
             if run.hz != 1_000_000_000
             else ""
         )
-        out.append(t["f_data_level"].format(n=i, span=span, v=lv["value"], tick=tick))
+        out.append(
+            t["f_data_level"].format(
+                n=i, span=span, v=lv["value"], tick=tick, unit=t["unit"]
+            )
+        )
     within, beyond = knee([(r[0], r[1], r[2]) for r in run.data])
     if within and beyond:
         out.append(t["f_data_knee"].format(a=kib(within[0]), b=kib(beyond[0])))
@@ -409,7 +422,9 @@ def other_findings(run, t):
             if run.hz != 1_000_000_000
             else ""
         )
-        out.append(t["f_pattern"].format(r=rnd / rep, d=rnd - rep, tick=tick))
+        out.append(
+            t["f_pattern"].format(r=rnd / rep, d=rnd - rep, tick=tick, unit=t["unit"])
+        )
     return out
 
 
@@ -422,7 +437,7 @@ TEXT["zh"].update(
         "f_code_step": "代码足迹里最陡的一步在 {a} 到 {b} 个回调（{ka} 到 {kb} KiB）之间，耗时涨到 {r:.2f} 倍。",
         "f_code_all": "全部 {n} 个回调时是热参考的 **{r:.2f} 倍**。",
         "tick_note": "（{k:.1f} tick）",
-        "f_data_level": "数据读延迟第 {n} 级：{span} KiB，约 **{v:.1f} ns**{tick}。",
+        "f_data_level": "数据读延迟第 {n} 级：{span} KiB，约 **{v:.1f} {unit}**{tick}。",
         "f_data_knee": "数据足迹的拐点在 **{a} KiB** 和 {b} KiB 之间：数据缓存的有效容量大约就在这里。",
         "f_data_last": "最大的数据区（{a} KiB）上，一次依赖读是热参考的 **{r:.1f} 倍**，"
         "16 个回调的一次调用是热参考的 {c:.2f} 倍。",
@@ -430,7 +445,7 @@ TEXT["zh"].update(
         "f_skew_slower": "选择更集中并没有变快：skew {k} 的耗时是均匀的 {r:.2f} 倍。skew 每多 1 就多一次随机数抽样，"
         "这个开销（几到十几个周期）盖过了热点子集带来的好处，库大而热点子集仍装不进缓存时就会这样。",
         "f_pattern": "随机顺序的耗时是每 32 次重复的序列的 {r:.2f} 倍，"
-        "一次调用差 {d:.2f} ns{tick}：这是间接调用预测失败的代价上限。",
+        "一次调用差 {d:.2f} {unit}{tick}：这是间接调用预测失败的代价上限。",
     }
 )
 TEXT["en"].update(
@@ -445,7 +460,7 @@ TEXT["en"].update(
         "({ka} to {kb} KiB): the time grows {r:.2f} times.",
         "f_code_all": "With all {n} callbacks the time is **{r:.2f}x** the hot time.",
         "tick_note": " ({k:.1f} ticks)",
-        "f_data_level": "Data load latency, level {n}: {span} KiB, about **{v:.1f} ns**{tick}.",
+        "f_data_level": "Data load latency, level {n}: {span} KiB, about **{v:.1f} {unit}**{tick}.",
         "f_data_knee": "The data footprint has its knee between **{a} KiB** and {b} KiB: the "
         "effective size of the data cache is about here.",
         "f_data_last": "In the largest data region ({a} KiB) one dependent load is **{r:.1f}x** "
@@ -459,7 +474,7 @@ TEXT["en"].update(
         "dozen cycles), which outweighs the hot subset when the bank is big and the subset still "
         "does not fit the cache.",
         "f_pattern": "A random order takes {r:.2f}x the time of a sequence that repeats every 32 "
-        "calls, {d:.2f} ns{tick} per call: an upper bound of the cost of a mispredicted "
+        "calls, {d:.2f} {unit}{tick} per call: an upper bound of the cost of a mispredicted "
         "indirect call.",
     }
 )
@@ -474,7 +489,7 @@ def overview(runs, t):
     head = "| " + t["target"] + " | " + " | ".join(r.label for r in runs) + " |"
     sep = "|---|" + "---|" * len(runs)
     rows = [
-        (t["timer"], [timer_text(r.hz) for r in runs]),
+        (t["timer"], [timer_text(r.real_hz or r.hz) for r in runs]),
         (t["bank"], [f"{r.bank} ({r.nfuncs})" for r in runs]),
         (t["data_region"], [f"{kib(r.data_bytes)} KiB" for r in runs]),
         (t["validation"], [t["failed"] if r.bad else t["ok"] for r in runs]),
@@ -569,9 +584,15 @@ def legend(runs, t):
     return ["", f"{t['lines']}: {names}. {t['common']}"]
 
 
-def build(runs, lang, title, sources):
-    """The Markdown report of the runs."""
-    t = TEXT[lang]
+def build(runs, lang, title, sources, cycles=False):
+    """The Markdown report of the runs; with cycles, times are in timer ticks."""
+    t = dict(TEXT[lang])
+    if cycles:
+        for r in runs:
+            to_ticks(r)
+        t["unit"] = t["cycles_unit"]
+        t["ns_call"] = t["cycles_ns_call"]
+        t["ns_load"] = t["cycles_ns_load"]
     out = [f"# {title or t['title']}", ""]
     out.append(f"{t['source']}: " + ", ".join(f"`{s}`" for s in sources))
     if any(r.bad for r in runs):
@@ -595,6 +616,19 @@ def build(runs, lang, title, sources):
         "",
     ]
     return "\n".join(out)
+
+
+def to_ticks(run):
+    """Turns the times of a run from ns into timer ticks (CPU cycles on a cycle counter),
+    which is what to compare between machines of different clock rates."""
+    k = run.hz / 1e9
+    run.code = [(a, b, c * k, d) for a, b, c, d in run.code]
+    run.data = [(a, b * k, c, d * k, e) for a, b, c, d, e in run.data]
+    run.skew = [(a, b * k, c) for a, b, c in run.skew]
+    if run.pattern:
+        run.pattern = (run.pattern[0] * k, run.pattern[1] * k)
+    run.real_hz = run.hz
+    run.hz = 1_000_000_000  # the values are ticks now; no second conversion
 
 
 def read_inputs(paths, labels):
@@ -627,6 +661,11 @@ def main(argv=None):
     )
     ap.add_argument("--title", help="title of the report")
     ap.add_argument(
+        "--cycles",
+        action="store_true",
+        help="show timer ticks instead of ns (cycles, for comparing machines of different clocks)",
+    )
+    ap.add_argument(
         "-l",
         "--label",
         action="append",
@@ -639,7 +678,7 @@ def main(argv=None):
     except (CsvError, OSError) as exc:
         print(f"ccreport: {exc}", file=sys.stderr)
         return 2
-    doc = build(runs, args.lang, args.title, sources)
+    doc = build(runs, args.lang, args.title, sources, args.cycles)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as f:
             f.write(doc)
