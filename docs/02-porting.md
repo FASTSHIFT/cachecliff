@@ -57,5 +57,7 @@ void     cc_port_puts(const char *s);
 | `caches` | bit 0 I-cache，bit 1 D-cache；批与批之间由固件开关（关 D-cache 会先 clean） |
 | `mode` | 0 调回调，1 指针追逐 |
 
+`EXTRA_CFLAGS="-DCC_CSV=1 -DCC_QUICK=0"` 让开机报告输出 CSV、跑完整扫描，把串口日志交给 `tools/ccreport.py` 就得到分析文档（见 `01-user-guide.md`）。
+
 固件自己用 DWT 给每一批计时，累计在 `g_cc_stat`（`batches calls_lo ticks_lo last_ticks last_calls sink chase_x1000`）。
 用别的工具（ETM trace、PMU）抓同一时段，就能和这个自报数字对照，见 `04-validation-stm32h743.md`。

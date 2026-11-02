@@ -19,7 +19,11 @@ cachecliff 是独立的工具，不依赖任何 trace 设备；在 STM32H743 上
 
 ```sh
 make run                # 完整扫描（./cachecliff --quick 更短，--csv 机器可读）
+make report             # 同上，并写出带曲线图和结论的 report.md
 ```
+
+设备上抓下来的串口日志也能直接出报告：`python3 tools/ccreport.py uart.log -o report.md`
+（范例：[`docs/examples/h743.md`](docs/examples/h743.md)）。
 
 ```
 code footprint (uniform choice, 4 KiB of data)

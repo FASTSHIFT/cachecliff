@@ -11,9 +11,10 @@
 | `port/cortex-m/` | Cortex-M port（DWT 周期计数器） |
 | `bank/` | 生成的回调库（`cc_bank_000..015.c`、`cc_table.c`、`cc_bank.h`），**不要手改** |
 | `tools/ccgen.py` | 库的生成器，只用 Python 标准库 |
+| `tools/ccreport.py` | 把输出变成带 Mermaid 图的 Markdown 报告，只用 Python 标准库 |
 | `tests/` | 单元测试（C）和生成器测试（Python） |
 | `scripts/` | 格式、文档检查、安装 git hook |
-| `docs/` | 这些文档 |
+| `docs/` | 这些文档；`docs/examples/` 是真实数据和 `ccreport.py` 的输出 |
 
 ## 2. 约定
 
@@ -32,7 +33,7 @@ pre-commit 检查 C 和 Python 的格式，并检查 `bank/` 与 `tools/ccgen.py
 
 | 目标 | 内容 |
 |---|---|
-| `make test` | 27 个单元测试（假计时器，检查引擎和报告怎么处理数字）、5 个真实计时器测试（`tests/test_hosted.c`）、8 个生成器测试（`tests/test_ccgen.py`） |
+| `make test` | 27 个单元测试（假计时器，检查引擎和报告怎么处理数字）、5 个真实计时器测试（`tests/test_hosted.c`）、8 个生成器测试（`tests/test_ccgen.py`）、13 个报告工具测试（`tests/test_ccreport.py`） |
 | `make asan` | 单元测试在 AddressSanitizer + UBSan 下 |
 | `make coverage` | 单元测试对 `src/` 的行覆盖率，门槛 95%（目前 100%） |
 | `make cross` | M0/M3/M4/M7 编译核心，M3/M4/M7 编译 Cortex-M port |

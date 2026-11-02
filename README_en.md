@@ -23,7 +23,11 @@ profile, and the self-reported numbers agree with the trace within 0.3%.
 
 ```sh
 make run                # the full sweeps (./cachecliff --quick is shorter, --csv is machine-readable)
+make report             # the same, and write report.md with charts and findings
 ```
+
+A console log captured on a device works too: `python3 tools/ccreport.py uart.log -o report.md`
+(example: [`docs/examples/h743.md`](docs/examples/h743.md)).
 
 ```
 code footprint (uniform choice, 4 KiB of data)

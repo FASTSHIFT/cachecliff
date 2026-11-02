@@ -1,0 +1,45 @@
+cachecliff 0.1.0  bank ebc8ae01 (1024 callbacks)  data 256 KiB  timer 150000000 Hz
+validation: ok
+
+code footprint (uniform choice, 4 KiB of data)
+  funcs   code KiB     ns/call   vs hot
+      4        1.8     1028.52    0.94x
+      8        3.6     1057.04    0.97x
+     16        7.3     1085.17    0.99x
+     32       14.3     1125.23    1.03x
+     64       28.5     1373.04    1.26x
+    128       57.0     1697.20    1.56x
+    256      114.5     1889.00    1.74x
+    512      229.8     2020.02    1.86x
+   1024      459.4     2053.98    1.89x
+
+data footprint (16 callbacks)
+   data KiB   chase ns/load   vs hot   ns/call   vs hot
+        1.0         20.00    1.00x     1087.10    1.00x
+        2.0         20.00    1.00x     1087.67    1.00x
+        4.0         20.00    1.00x     1086.89    1.00x
+        8.0         20.00    1.00x     1085.26    0.99x
+       16.0         20.00    1.00x     1159.94    1.06x
+       32.0         68.52    3.42x     1324.50    1.22x
+       64.0         79.04    3.95x     1406.04    1.29x
+      128.0         79.98    3.99x     1442.38    1.32x
+      256.0         80.01    4.00x     1462.26    1.34x
+
+skew of the choice (1024 callbacks)
+  skew     ns/call   vs hot
+     1     2054.51    1.89x
+     2     2106.09    1.94x
+     3     2164.56    1.99x
+     4     2216.88    2.04x
+     8     2359.78    2.17x
+
+predictability of the choice (64 callbacks)
+  random order   1373.24 ns/call
+  repeats /32    1093.12 ns/call   (random is 1.25x)
+
+summary
+  hot reference         1085.35 ns/call
+  code within +25%      up to 14.3 KiB
+  code, all callbacks   1.89x the hot time
+  data within +25%      up to 16.0 KiB (pointer chase)
+  data, largest region  4.00x the reference, 80.01 ns/load

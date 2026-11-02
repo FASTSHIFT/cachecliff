@@ -27,7 +27,32 @@ make run                # 完整扫描
 
 编译选项：`OPT=-O2`（默认）、`CC=clang`、`WERROR=-Werror`。
 
-## 2. 读报告
+## 2. 出图和分析文档
+
+`tools/ccreport.py` 把 cachecliff 的输出变成带 Mermaid 曲线图和结论的 Markdown 文档，只用 Python 标准库：
+
+```sh
+make report                                             # 本机：跑一遍并写 report.md
+./cachecliff --csv > host.csv
+python3 tools/ccreport.py host.csv -o report.md         # 任何一份输出
+python3 tools/ccreport.py on.csv off.csv -l "缓存开" -l "缓存关" -o compare.md    # 多份叠在同一张图上
+```
+
+- 输入可以是 `--csv` 的输出，也可以是普通报告的文本；设备串口上抓下来的整份日志直接喂进去就行，
+  前后的启动信息、乱码、别的输出都会被跳过，日志里有多份报告时取最后一份。`-` 或不给文件名表示读标准输入。
+- 输出到标准输出，或用 `-o` 写文件；`--lang en` 出英文，`--title` 改标题。
+- 文档里有：概览表、结论（拐点位置、各级存储的读延迟、最陡的一步、倾斜度和预测失败的代价）、四组 Mermaid 折线图和对应的数据表。
+  多份输入时只画它们共有的点，图下面注明线条顺序。
+- 回调没有通过校验时文档开头会警告，退出码为 1；读不出报告时退出码为 2。
+- 在 GitHub、VS Code（装了 Mermaid 插件）和 Kiro 里直接能看到图。
+
+例子（真实数据）：[`examples/h743.md`](examples/h743.md)（STM32H743 一份）、
+[`examples/h743-compare.md`](examples/h743-compare.md)（字面量池对 `movw/movt` 两份叠加）。
+
+设备上要出 CSV 就让 `cc_main` 的选项里 `csv = 1`（STM32H743 的固件用 `EXTRA_CFLAGS=-DCC_CSV=1`，见 `02-porting.md`）；
+不想改固件，直接抓文本报告也可以。
+
+## 3. 读报告
 
 ```
 cachecliff 0.1.0  bank ebc8ae01 (1024 callbacks)  data 256 KiB  timer 150000000 Hz
@@ -64,7 +89,7 @@ summary
 `--csv` 的行：`code,<funcs>,<code字节>,<ns/call>,<相对热参考%>`；
 `data,<字节>,<chase ns>,<%>,<ns/call>,<%>`；`skew,<k>,<ns/call>,<%>`；`pattern,<随机>,<重复>`；`summary,...`。
 
-## 3. 容量
+## 4. 容量
 
 调整链接进来的容量，让程序装得进小目标（`include/cachecliff.h`）：
 
@@ -76,7 +101,7 @@ make CC_NFUNCS=256 CC_DATA_BYTES=262144
 `CC_TARGET_MS`（每点至少多少毫秒）、`CC_FN_ATTR`（回调的属性）、`CC_DATA_ATTR`（数据区的属性）也能在命令行覆盖。
 一个回调约 100 到 400 字节，1024 个约 370 到 460 KiB（Thumb-2，-O2）。
 
-## 4. 换一个库
+## 5. 换一个库
 
 ```sh
 python3 tools/ccgen.py --out bank --funcs 4096 --seed 7
