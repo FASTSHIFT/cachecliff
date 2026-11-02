@@ -36,9 +36,35 @@ void     cc_port_puts(const char *s);
 
 测的是周期，不是时间，所以不同主频的报告可以直接比。
 
-## 4. 范例：STM32H743
+## 4. 浸泡循环
 
-固件在 `stm32h743-etm-trace-firmware` 仓库的 `Core/cachecliff_port/`，`make CACHECLIFF=1` 构建。配置：
+`cc_main()` 扫完就结束。要让别的工具（ETM trace、PMU、示波器）看清**一个点**，就用 `port/cortex-m/cc_soak.c`：
+一个配置跑多久都行，配置在 RAM 里的 `g_cc_soak`，每批读一次，所以调试器用 `mww` 改它就行，不用重新烧录。
+`g_cc_soak` 是 7 个连续的 32 位字：
+
+| 字段 | 含义 |
+|---|---|
+| `nfuncs` `skew` `period` `data_bytes` | 同 `cc_cfg` |
+| `batch` | 每批调用次数 |
+| `caches` | bit 0 I-cache，bit 1 D-cache；批与批之间由 `cc_soak` 开关（关 D-cache 会先 clean） |
+| `mode` | 0 调回调，1 指针追逐 |
+
+`cc_soak` 自己用 port 的计时器给每一批计时，累计在 `g_cc_stat`
+（`batches calls_lo ticks_lo last_ticks last_calls sink chase_x1000`），用别的工具抓同一时段就能和这个自报数字对照，
+见 `04-validation-stm32h743.md`。板子要定义 `CC_CMSIS_HEADER`（声明 `SCB_EnableICache()` 等的头文件，放在 `-include` 的配置头里），
+并在配好时钟、缓存之后调用 `cc_soak(caches)`，`caches` 是板子已经打开的缓存。
+
+## 5. 范例
+
+两块板子的胶水代码都在板子工程里，cachecliff 本身不含任何 SDK：
+
+| 板子 | 位置 | 构建 |
+|---|---|---|
+| STM32H743（150 MHz，16 KiB 缓存） | `stm32h743-etm-trace-firmware` 的 `Core/cachecliff_port/` | `make CACHECLIFF=1` |
+| i.MX RT1176（996 MHz，32 KiB 缓存） | `lv_port_nxp_evkmimxrt1170` 的 `cachecliff_port/` | `make -C cachecliff_port` |
+
+两者都在启动时从串口打印完整报告，再进入浸泡循环；`EXTRA_CFLAGS="-DCC_CSV=1 -DCC_QUICK=0"` 让报告输出 CSV 并跑完整扫描，
+把串口日志交给 `tools/ccreport.py` 就得到分析文档（见 `01-user-guide.md`）。STM32H743 的配置：
 
 | 项 | 内容 |
 |---|---|
@@ -46,18 +72,3 @@ void     cc_port_puts(const char *s);
 | 数据区 | 256 KiB，在 AXI SRAM 的 `.axi_bss` 段，走 D-cache（DTCM 不过缓存，会盖住效果） |
 | 输出 | USART1，115200 |
 | 计时 | DWT_CYCCNT，150 MHz |
-
-固件先打印完整报告，再进入**浸泡循环**：用一个固定配置反复调用回调，配置存在 RAM 里的 `g_cc_soak`，每批读一次，
-所以调试器用 `mww` 改它就行，不用重新烧录。依次是 7 个 32 位字：
-
-| 字段 | 含义 |
-|---|---|
-| `nfuncs` `skew` `period` `data_bytes` | 同 `cc_cfg` |
-| `batch` | 每批调用次数 |
-| `caches` | bit 0 I-cache，bit 1 D-cache；批与批之间由固件开关（关 D-cache 会先 clean） |
-| `mode` | 0 调回调，1 指针追逐 |
-
-`EXTRA_CFLAGS="-DCC_CSV=1 -DCC_QUICK=0"` 让开机报告输出 CSV、跑完整扫描，把串口日志交给 `tools/ccreport.py` 就得到分析文档（见 `01-user-guide.md`）。
-
-固件自己用 DWT 给每一批计时，累计在 `g_cc_stat`（`batches calls_lo ticks_lo last_ticks last_calls sink chase_x1000`）。
-用别的工具（ETM trace、PMU）抓同一时段，就能和这个自报数字对照，见 `04-validation-stm32h743.md`。

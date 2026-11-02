@@ -8,7 +8,7 @@
 | `src/cc_engine.c` | 调度器、计时、指针追逐、校验 |
 | `src/cc_main.c` | 扫描和报告 |
 | `port/posix/` | 本机 port 和 `main` |
-| `port/cortex-m/` | Cortex-M port（DWT 周期计数器） |
+| `port/cortex-m/` | Cortex-M port（DWT 周期计数器）和浸泡循环 `cc_soak` |
 | `bank/` | 生成的回调库（`cc_bank_000..015.c`、`cc_table.c`、`cc_bank.h`），**不要手改** |
 | `tools/ccgen.py` | 库的生成器，只用 Python 标准库 |
 | `tools/ccreport.py` | 把输出变成带 Mermaid 图的 Markdown 报告，只用 Python 标准库 |

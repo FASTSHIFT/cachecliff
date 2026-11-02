@@ -108,6 +108,12 @@ cross:
 	            -Iinclude -DCC_NFUNCS=256 -DCC_DATA_BYTES=16384 -c -o /dev/null $$f || exit 1; \
 	    done; \
 	done
+	@for cpu in cortex-m3 cortex-m4 cortex-m7; do \
+	    for f in port/cortex-m/cc_port.c port/cortex-m/cc_soak.c; do \
+	        $(ARM_CC) -mcpu=$$cpu -mthumb -Os -std=c99 $(WARN) -Iinclude -Iport/cortex-m -Itests \
+	            '-DCC_CMSIS_HEADER="cmsis_stub.h"' -c -o /dev/null $$f || exit 1; \
+	    done; \
+	done
 
 format:
 	bash scripts/format.sh
